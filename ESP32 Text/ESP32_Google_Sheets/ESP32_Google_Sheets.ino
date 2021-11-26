@@ -28,9 +28,14 @@ const int sendInterval = 5000;
 #define LOGO_HEIGHT   16
 #define LOGO_WIDTH    16
 
+#define MODE_READ_CELL_RANGE 0
+#define MODE_READ_LAST_CELL 1
 
 WiFiClientSecure client;
- String spreadSheetReturnString;
+
+
+String dataDateString, dataTimeString, dataMessageString;
+int dataSentFlag, dataReceivedFlag = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -50,22 +55,63 @@ Serial.println("Ready to go");
 //testdrawstyles();
 }
 
-void loop() {
-  //spreadsheet_comm();
- //spreadSheetReturnString = readSpreadSheet();
-  writeSpreadSheet();
+
+
+
+void loop() 
+{
+  ReadDataFromSheets();
   delay(sendInterval);
 }
 
 
-
-String readSpreadSheet()
+void ReadDataFromSheets()
 {
+  char parsedData[100];
+  int commaIndex[10] = {0};
+  String spreadSheetReturnString;
+  int counter = 0;
+  spreadSheetReturnString = readSpreadSheet(MODE_READ_LAST_CELL);
+  for(counter = 1; counter <= 5; counter++)
+  {
+    commaIndex[counter] = spreadSheetReturnString.indexOf(',', commaIndex[counter - 1] + 1);
+  }
+
+
+  dataDateString = spreadSheetReturnString.substring(0, commaIndex[1]);
+  dataTimeString = spreadSheetReturnString.substring(commaIndex[1] + 1, commaIndex[2]);
+  dataMessageString = spreadSheetReturnString.substring(commaIndex[2] + 1, commaIndex[3]);
+  dataSentFlag = (spreadSheetReturnString.substring(commaIndex[3] + 1, commaIndex[4])).toInt();
+  dataReceivedFlag = (spreadSheetReturnString.substring(commaIndex[4] + 1, commaIndex[5])).toInt();
+   //sscanf(spreadSheetReturnString.c_str(),"%s,%s,$s,%i,%i", dataDateString, dataTimeString, dataMessageString, dataSentFlag, dataReceivedFlag);
+   sprintf(parsedData,"Date: %s, Time: %s, Message: %s, Sent Flag: %i, Received Flag: %i", dataDateString, dataTimeString, dataMessageString, dataSentFlag, dataReceivedFlag);
+  // Serial.println(dataDateString);
+  // Serial.println(dataTimeString);
+  // Serial.println(dataMessageString);
+  // Serial.println(dataSentFlag);
+  // Serial.println(dataReceivedFlag);
+   
+  // Serial.println(parsedData);
+}
+
+String readSpreadSheet(byte modeType)
+{
+  String url = "";
   //https://script.google.com/macros/s/AKfycbwX8S-OX1MyQfS8jirMaF7FK2M1sBkYoVzDVRl3MpQibCIaqOGeq1TdCT8J6qhEY_oh/exec?mode=0&rangestart=C&rangestart=3&rangeend=C&rangeend=6
    HTTPClient http;
-   String url="https://script.google.com/macros/s/"+GOOGLE_SCRIPT_ID+"/exec?read";
-//   Serial.print(url);
-  Serial.print("Making a request");
+
+  switch(modeType)
+  {
+    case(MODE_READ_LAST_CELL):
+      url="https://script.google.com/macros/s/"+GOOGLE_SCRIPT_ID+"/exec?mode=" + modeType;
+    break;
+
+
+    
+  }
+   
+  Serial.println(url);
+  Serial.println("Making a request");
   http.begin(url.c_str()); //Specify the URL and certificate
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   int httpCode = http.GET();
@@ -73,8 +119,8 @@ String readSpreadSheet()
     if (httpCode > 0) { //Check for the returning code
         payload = http.getString();
         
-        Serial.println(httpCode);
-        Serial.println(payload);
+        //Serial.println(httpCode);
+        //Serial.println(payload);
       }
     else {
       Serial.println("Error on HTTP request");
