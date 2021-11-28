@@ -306,6 +306,12 @@ void guiTask(void *pvParameters) {
 3, 3627
 4, 2
 
+0, 230
+1, 3575
+2, 179
+3, 3707
+4, 2
+
 */
 
 void InitTFTDisplay()
@@ -314,7 +320,8 @@ void InitTFTDisplay()
   tft.begin(); /* TFT init */
   tft.setRotation(3); /* Landscape orientation */
 
-  uint16_t calData[5] = { 334, 3439, 176,3627 , 1 };
+
+  uint16_t calData[5] = { 150, 3700, 150,3707 , 1 };
   tft.setTouch(calData);
 
   lv_disp_buf_init(&disp_buf, buf, NULL, LV_HOR_RES_MAX * 10);
@@ -375,6 +382,12 @@ static void lv_main(){
     // lv_style_set_bg_color(&style1, LV_STATE_FOCUSED, LV_COLOR_RED);
     // lv_style_set_bg_color(&style1, LV_STATE_FOCUSED | LV_STATE_PRESSED, lv_color_hex(0xf88));
 
+  //Create a new style for the label/
+   static lv_style_t style_icon;
+   lv_style_init(&style_icon);
+  lv_style_set_text_font(&style_icon, LV_STATE_DEFAULT, &lv_font_montserrat_12);
+
+
     bg_left_panel = lv_obj_create(scr, NULL);
     lv_obj_clean_style_list(bg_left_panel, LV_OBJ_PART_MAIN);
     lv_obj_set_style_local_bg_opa(bg_left_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT,LV_OPA_COVER);
@@ -395,7 +408,10 @@ static void lv_main(){
     lv_obj_set_size(btn_write_message, 50, 50);
     lv_obj_add_style(btn_write_message, LV_BTN_PART_MAIN, &style1);  /*Overwrite only a some colors to red*/
     
-
+    lv_obj_t *label_write_message = lv_label_create(btn_write_message, NULL);
+    lv_label_set_text(label_write_message, "Write\nMessage");
+    lv_obj_align(label_write_message, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_style(label_write_message, LV_LABEL_PART_MAIN,&style_icon);
 
     /* Create simple label */
     label = lv_label_create(bg_right_panel, NULL);
