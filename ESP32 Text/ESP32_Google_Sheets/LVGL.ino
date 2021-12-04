@@ -1,10 +1,14 @@
 //TFT LVGL Functions 
 /********************************************************************************/
 #define LV_LVGL_H_INCLUDE_SIMPLE
-#include "TestImage.c"
+//#include "TestImage.c"
 
 //TFT LVGL Objects
-static lv_obj_t * scr;
+static lv_obj_t * scr;                // Main Screen object
+
+//Screen objects
+static lv_obj_t * scr_home;
+
 static lv_obj_t *label;
 static lv_obj_t * kb;
 static lv_obj_t * tb_message;
@@ -17,19 +21,20 @@ static lv_obj_t * my_image_name;
 
 static lv_style_t nav_button_style;
 static lv_style_t nav_button_text_style;
+static lv_style_t time_date_text_style;
 
-const lv_img_dsc_t TestImage = {
- {
-   LV_IMG_CF_TRUE_COLOR,  //Header CF
-   0,                           // header.alwayszero
-   2,                           // Unknown
-   285,                         // Width
-   190,                         // height 
- },
-     86700 * LV_COLOR_SIZE / 8,   // data size
-    TestImage_map,        // data
+// const lv_img_dsc_t TestImage = {
+//  {
+//    LV_IMG_CF_TRUE_COLOR,  //Header CF
+//    0,                           // header.alwayszero
+//    2,                           // Unknown
+//    285,                         // Width
+//    190,                         // height 
+//  },
+//      86700 * LV_COLOR_SIZE / 8,   // data size
+//     TestImage_map,        // data
 
-};
+// };
 
 
 void guiTask(void *pvParameters) {
@@ -132,49 +137,133 @@ static void lv_main(){
   scr = lv_obj_create(NULL, NULL);
   lv_scr_load(scr);
 
+  //
+
   InitStyles();
+  
+  InitHomeScreen();
+  
+  //InitPanels();
 
-  InitPanels();
-
-  InitNavPanel();
+  //InitNavPanel();
 
   // Inititalise Image from array  
   // my_image_name = lv_img_create(bg_main_panel, NULL);
   // lv_img_set_src(my_image_name, &TestImage);
 
   /* Create simple label */
-  label = lv_label_create(bg_main_panel, NULL);
-  lv_label_set_text(label, "Startup");
-  lv_obj_align(label, NULL, LV_ALIGN_CENTER, 0, 0);
+  // label = lv_label_create(scr_home, NULL);
+  // lv_label_set_text(label, "Startup");
+  // lv_obj_align(label, NULL, LV_ALIGN_CENTER, 0, 0);
 
-  InitWriteMessageObjects();
+  //InitWriteMessageObjects();
 
  }
 
 void InitStyles()
 {
   // Nav panel button style   
-  lv_style_set_bg_color(&nav_button_style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
-  lv_style_set_radius(&nav_button_style, LV_STATE_DEFAULT, 6);
+  lv_style_set_bg_color(&nav_button_style, LV_STATE_DEFAULT, LV_COLOR_RED);
+  lv_style_set_radius(&nav_button_style, LV_STATE_DEFAULT, 10);
   lv_style_set_border_width(&nav_button_style, LV_STATE_DEFAULT, 1);
-  lv_style_set_border_color(&nav_button_style, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+  lv_style_set_border_color(&nav_button_style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
   lv_style_set_border_color(&nav_button_style, LV_STATE_FOCUSED, LV_COLOR_RED);
-  lv_style_set_outline_color(&nav_button_style, LV_STATE_FOCUSED, LV_COLOR_BLACK);
+  lv_style_set_outline_color(&nav_button_style, LV_STATE_FOCUSED, LV_COLOR_WHITE);
   lv_style_set_outline_width(&nav_button_style, LV_STATE_FOCUSED, 0);
   lv_style_set_outline_width(&nav_button_style, LV_STATE_DEFAULT, 0);
-  // lv_style_set_shadow_color(&style1, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-  // lv_style_set_shadow_width(&style1, LV_STATE_DEFAULT, 10);
-  //lv_style_set_clip_corner(&style1, LV_STATE_DEFAULT, false) ;
-  // lv_style_set_bg_color(&style1, LV_STATE_PRESSED, LV_COLOR_GRAY);
-  // lv_style_set_bg_color(&style1, LV_STATE_FOCUSED, LV_COLOR_RED);
-  // lv_style_set_bg_color(&style1, LV_STATE_FOCUSED | LV_STATE_PRESSED, lv_color_hex(0xf88));
+
 
 
   //Nav panel button text style
   lv_style_init(&nav_button_text_style);
-  lv_style_set_text_font(&nav_button_text_style, LV_STATE_DEFAULT, &lv_font_montserrat_12);
+  lv_style_set_text_font(&nav_button_text_style, LV_STATE_DEFAULT, &lv_font_montserrat_16);
+  lv_style_set_text_color(&nav_button_text_style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+
+  // Time date text style
+  lv_style_init(&time_date_text_style);
+  lv_style_set_text_font(&time_date_text_style, LV_STATE_DEFAULT, &lv_font_montserrat_12);
+  lv_style_set_text_color(&time_date_text_style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+  
 
 } 
+
+void InitHomeScreen()
+{
+  // Initialise the home screen
+
+  scr_home = lv_obj_create(scr, NULL);
+  lv_obj_clean_style_list(scr_home, LV_OBJ_PART_MAIN);
+  lv_obj_set_style_local_bg_opa(scr_home, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT,LV_OPA_COVER);
+  lv_obj_set_style_local_bg_color(scr_home, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT,LV_COLOR_MAROON);
+  lv_obj_set_pos(scr_home, 0, 0);
+  lv_obj_set_size(scr_home, LV_HOR_RES, LV_VER_RES);
+
+  // Initialise view message button object
+  lv_obj_t *btn_view_msg = lv_btn_create(scr_home,NULL);
+  lv_obj_set_event_cb(btn_view_msg, BtnMessageWriteEventHandler);
+  lv_obj_set_pos(btn_view_msg, 20, 20);
+  lv_obj_set_size(btn_view_msg, 130, 90);
+  lv_obj_add_style(btn_view_msg, LV_BTN_PART_MAIN, &nav_button_style);  /*Overwrite only a some colors to red*/
+
+  // Initialise write message button object
+  lv_obj_t *btn_write_msg = lv_btn_create(scr_home,NULL);
+  lv_obj_set_event_cb(btn_write_msg, BtnMessageWriteEventHandler);
+  lv_obj_set_pos(btn_write_msg, 170, 20);
+  lv_obj_set_size(btn_write_msg, 130, 90);
+  lv_obj_add_style(btn_write_msg, LV_BTN_PART_MAIN, &nav_button_style);  /*Overwrite only a some colors to red*/
+  
+  // Initialise reserve message button object
+  lv_obj_t *btn_res = lv_btn_create(scr_home,NULL);
+  lv_obj_set_event_cb(btn_res, BtnMessageWriteEventHandler);
+  lv_obj_set_pos(btn_res, 20, 130);
+  lv_obj_set_size(btn_res, 130, 90);
+  lv_obj_add_style(btn_res, LV_BTN_PART_MAIN, &nav_button_style);  /*Overwrite only a some colors to red*/
+
+  // Initialise settings message button object
+  lv_obj_t *btn_settings = lv_btn_create(scr_home,NULL);
+  lv_obj_set_event_cb(btn_settings, BtnMessageWriteEventHandler);
+  lv_obj_set_pos(btn_settings, 170, 130);
+  lv_obj_set_size(btn_settings, 130, 90);
+  lv_obj_add_style(btn_settings, LV_BTN_PART_MAIN, &nav_button_style);  /*Overwrite only a some colors to red*/
+
+  //Labels for buttons
+  // Text in view messages button object
+  lv_obj_t *label_view_messages_btn = lv_label_create(btn_view_msg, NULL);
+  lv_label_set_text(label_view_messages_btn, "View\nMessages");
+  lv_obj_align(label_view_messages_btn, NULL, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_add_style(label_view_messages_btn, LV_LABEL_PART_MAIN,&nav_button_text_style);
+
+  // Text in write message button object
+  lv_obj_t *label_write_message_btn = lv_label_create(btn_write_msg, NULL);
+  lv_label_set_text(label_write_message_btn, "Write\nMessage");
+  lv_obj_align(label_write_message_btn, NULL, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_add_style(label_write_message_btn, LV_LABEL_PART_MAIN,&nav_button_text_style);
+
+    // Text in write message button object
+  lv_obj_t *label_reserve_btn = lv_label_create(btn_res, NULL);
+  lv_label_set_text(label_reserve_btn, "");
+  lv_obj_align(label_reserve_btn, NULL, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_add_style(label_reserve_btn, LV_LABEL_PART_MAIN,&nav_button_text_style);
+
+    // Text in write message button object
+  lv_obj_t *label_settings_btn = lv_label_create(btn_settings, NULL);
+  lv_label_set_text(label_settings_btn, "Settings");
+  lv_obj_align(label_settings_btn, NULL, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_add_style(label_settings_btn, LV_LABEL_PART_MAIN,&nav_button_text_style);
+
+
+  // Text in write message button object
+  lv_obj_t *label_time_date = lv_label_create(scr_home, NULL);
+  lv_label_set_text(label_time_date, "Time - Date");
+  lv_obj_align(label_time_date, NULL, LV_ALIGN_IN_TOP_RIGHT, 0, 2);
+  lv_obj_add_style(label_time_date, LV_LABEL_PART_MAIN,&time_date_text_style);
+
+}
+
+
+
+
+
 
 void InitPanels()
 {
