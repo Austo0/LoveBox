@@ -1,7 +1,7 @@
 /*	Project : Read Google Spread Sheet Data from ESP32	*/
 /*Refer following video for complete project : https://youtu.be/0LoeaewIAdY*/
 
-
+#include <Preferences.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ESP32Ping.h>
@@ -20,7 +20,23 @@
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
 
+//TFT LVGL Objects
+static lv_obj_t * scr;                // Main Screen object
 
+void UpdateWifiStatusLabelText(String text);
+
+//Screen objects
+static lv_obj_t * scr_home;
+static lv_obj_t * scr_settings;
+
+
+// Home Screen
+
+// Settings Screen
+static lv_obj_t *label_settings_WIFI_status;
+static lv_obj_t *ta_ssid;
+static lv_obj_t *ta_password;
+static lv_obj_t * wifi_scan_list;
 
 // Interrupt Timer Definitions
 #define TIMER_INTERRUPT_DEBUG         0
@@ -31,12 +47,19 @@ void IRAM_ATTR TimerHandler0(void);
 
 /********************************************************************************/
 //Things to change
-const char * ssid = "dlink-80EB";
-const char * password = "abc123abc";
+// const char * ssid = "dlink-80EB";
+// const char * password = "abc123abc";
+String ssid = "dlink-80EB";
+String password = "abc123abc";
 
 String GOOGLE_SCRIPT_ID = "AKfycbwX8S-OX1MyQfS8jirMaF7FK2M1sBkYoVzDVRl3MpQibCIaqOGeq1TdCT8J6qhEY_oh";
 
 const int sendInterval = 5000; 
+
+int scanWifiFlag = 0;
+int connectWifiFlag = 0;
+int disconnectWifiFlag = 0;
+String scanNetworkSSID = "";
 /********************************************************************************/
 
 // Google Sheets Data Variables 
@@ -61,6 +84,7 @@ ESP32Timer ITimer0(0);
 // Initialise Instances
 WiFiClientSecure client;
 TFT_eSPI tft = TFT_eSPI();    /* TFT instance */
+Preferences preferences;    // Instance of preferences for saving data to Flash
 
 // Setup
 void setup() 
@@ -69,18 +93,14 @@ void setup()
   Serial.begin(115200);                       
   delay(10);
 
-  // Connect to the wifi
-  WiFi.mode(WIFI_STA);                        
-  WiFi.begin(ssid, password);
-  Serial.println("Started");
-  Serial.print("Connecting");
-  while (WiFi.status() != WL_CONNECTED) 
-  {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("Ready to go");
+  //Create a namespace in preferences for wifi credentials
+  preferences.begin("credentials", false);
 
+  ssid = preferences.getString("ssid", ""); 
+  password = preferences.getString("password", "");
+  
+  ConnectToWifi();
+ 
   // Initialise TFT Display
   //InitTFTDisplay();
 
@@ -104,11 +124,62 @@ void setup()
     &ntScanTaskHandler             // Task handle
   );
 
+  vTaskDelay(500);
+
+    xTaskCreate(
+    handleWifiConnection,    // Function that should be called
+    "HandleWifiConnection",   // Name of the task (for debugging)
+    4096*3,            // Stack size (bytes)
+    NULL,            // Parameter to pass
+    1,               // Task priority
+    &ntScanTaskHandler             // Task handle
+  );
+
 
   // Initialise Timer0 interrupt
   //ITimer0.attachInterruptInterval(TIMER0_INTERVAL_MS * 1000, TimerHandler0);
 
 
+}
+
+
+void ConnectToWifi()
+{
+  if (ssid == "" || password == "")
+  {
+    Serial.println("No values saved for ssid or password");
+  }
+  else 
+  {
+    // Connect to Wi-Fi
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid.c_str(), password.c_str());
+    Serial.print("Connecting to WiFi ..");
+    
+    int i = 0;
+    while((!WiFi.status() || WiFi.status() >= WL_DISCONNECTED) && i++ < 100) {
+        delay(100);
+    }
+    
+    if(WiFi.status() == WL_CONNECTED)
+    {
+      Serial.println("WIFI Connected");
+      UpdateWifiStatusLabelText("Connected");
+      preferences.putString("ssid", ssid); 
+      preferences.putString("password", password);
+    }    
+    else
+    {
+      Serial.println("WIFI Connection Failed");
+      UpdateWifiStatusLabelText("Failed");
+    }      
+    Serial.println(WiFi.localIP());  
+  }
+}
+
+void DisconnectWifi()
+{
+  WiFi.disconnect();
 }
 
 // Interrupt every TIMER0_INTERVAL_MS to check for updated data from google sheets
@@ -134,7 +205,59 @@ void loop()
   //   delay(5);
 }
 
+void handleWifiConnection(void *pvParameters)
+{
+  while(1)
+  {
+    vTaskDelay(100);
+    if(scanWifiFlag == 1)
+    {
+      scanWifiFlag = 0;
+      int n = WiFi.scanNetworks();
+      scanNetworkSSID = "";
+      if (n == 0) 
+      {
+        scanNetworkSSID += "No networks found";
+      } 
+      else 
+      {
+        for (int i = 0; i < n; ++i) 
+        {
+          // Print SSID and RSSI for each network found
+          scanNetworkSSID += WiFi.SSID(i);
+          if(i != (n-1))
+          {
+            scanNetworkSSID += "\n"; 
+          }          
+          
+        }
+        wifi_scan_list = lv_dropdown_create(scr_settings, NULL);
+        lv_obj_set_pos(wifi_scan_list, 145, 20); 
+        lv_dropdown_set_options(wifi_scan_list,scanNetworkSSID.c_str());
+        lv_obj_set_event_cb(wifi_scan_list, WifiScanDropdownEventHandler);
+        Serial.print(scanNetworkSSID);
+      }
+    }
 
+  if(WiFi.status() != WL_CONNECTED)
+  {
+    UpdateWifiStatusLabelText("Disconnected");
+  }  
+
+  if(connectWifiFlag == 1)
+  {
+    connectWifiFlag = 0;
+    ConnectToWifi();    
+  }  
+
+  if(disconnectWifiFlag == 1)
+  {
+    disconnectWifiFlag = 0;
+    DisconnectWifi();
+  }
+  
+  }
+}
 
 // Google Sheets Data Functions
 /********************************************************************************/
@@ -144,8 +267,13 @@ void scanGSheetTask(void *pvParameters)
 
   while(1)
   {
+ 
     vTaskDelay(10000);
-    ReadDataFromSheets();  
+    if(WiFi.status() == WL_CONNECTED)
+    {
+       ReadDataFromSheets();  
+    }
+   
     // lv_label_set_text(label, dataMessageString.c_str());
     // lv_obj_align(label, NULL, LV_ALIGN_CENTER, 0, 0);
   }

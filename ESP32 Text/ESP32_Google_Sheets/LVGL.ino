@@ -3,11 +3,12 @@
 #define LV_LVGL_H_INCLUDE_SIMPLE
 //#include "TestImage.c"
 
-//TFT LVGL Objects
-static lv_obj_t * scr;                // Main Screen object
 
-//Screen objects
-static lv_obj_t * scr_home;
+
+
+
+
+
 
 static lv_obj_t *label;
 static lv_obj_t * kb;
@@ -18,6 +19,12 @@ static lv_obj_t * btn_write_message;
 static lv_obj_t * ta_write_message;
 
 static lv_obj_t * my_image_name;
+
+// Styles
+static lv_style_t heading_1_text_style;
+static lv_style_t heading_2_text_style;
+static lv_style_t kb_text_style;
+
 
 static lv_style_t nav_button_style;
 static lv_style_t nav_button_text_style;
@@ -35,42 +42,6 @@ static lv_style_t time_date_text_style;
 //     TestImage_map,        // data
 
 // };
-
-
-void guiTask(void *pvParameters) {
-    
-    InitTFTDisplay();
-
-    uint16_t calData[5] = { 295, 3493, 320, 3602, 2 };
-    tft.setTouch(calData);
-
-
-    lv_disp_buf_init(&disp_buf, buf, NULL, LV_HOR_RES_MAX * LV_VER_RES_MAX / 10);
-    lv_disp_drv_t disp_drv;
-    lv_disp_drv_init(&disp_drv);
-
-    disp_drv.hor_res = SCREEN_WIDTH;
-    disp_drv.ver_res = SCREEN_HEIGHT;
-    disp_drv.flush_cb = my_disp_flush;
-    disp_drv.buffer = &disp_buf;
-    lv_disp_drv_register(&disp_drv);
-
-    lv_indev_drv_t indev_drv;
-    lv_indev_drv_init(&indev_drv);             /*Descriptor of a input device driver*/
-    indev_drv.type = LV_INDEV_TYPE_POINTER;    /*Touch pad is a pointer-like device*/
-    indev_drv.read_cb = my_touchpad_read;      /*Set your driver function*/
-    lv_indev_drv_register(&indev_drv);         /*Finally register the driver*/
-  
-    lv_main();
-
-  
-    while (1) {
-         lv_task_handler();
-    }
-}
-
-
-
 /*
 0, 334
 1, 3439
@@ -86,8 +57,10 @@ void guiTask(void *pvParameters) {
 
 */
 
-void InitTFTDisplay()
-{
+void guiTask(void *pvParameters) {
+    
+   // InitTFTDisplay();
+
   lv_init();
   tft.begin(); /* TFT init */
   tft.setRotation(3); /* Landscape orientation */
@@ -120,8 +93,11 @@ void InitTFTDisplay()
     while (1) {
          lv_task_handler();
     }
-    
 }
+
+
+
+
 
 int WriteMessageFlag = 0;
 
@@ -141,8 +117,11 @@ static void lv_main(){
 
   InitStyles();
   
+
+
   InitHomeScreen();
   
+  InitSettingsScreen();
   //InitPanels();
 
   //InitNavPanel();
@@ -157,6 +136,10 @@ static void lv_main(){
   // lv_obj_align(label, NULL, LV_ALIGN_CENTER, 0, 0);
 
   //InitWriteMessageObjects();
+
+
+      lv_obj_set_hidden(scr_home,false);       // Hide the main screen 
+    lv_obj_set_hidden(scr_settings,true);  // Display the settings screen
 
  }
 
@@ -174,6 +157,17 @@ void InitStyles()
 
 
 
+  //Heading 1 text style
+  lv_style_init(&heading_1_text_style);
+  lv_style_set_text_font(&heading_1_text_style, LV_STATE_DEFAULT, &lv_font_montserrat_16);
+  lv_style_set_text_color(&heading_1_text_style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+
+  //Heading 2 text style
+  lv_style_init(&heading_2_text_style);
+  lv_style_set_text_font(&heading_2_text_style, LV_STATE_DEFAULT, &lv_font_montserrat_12);
+  lv_style_set_text_color(&heading_2_text_style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+
+
   //Nav panel button text style
   lv_style_init(&nav_button_text_style);
   lv_style_set_text_font(&nav_button_text_style, LV_STATE_DEFAULT, &lv_font_montserrat_16);
@@ -184,6 +178,10 @@ void InitStyles()
   lv_style_set_text_font(&time_date_text_style, LV_STATE_DEFAULT, &lv_font_montserrat_12);
   lv_style_set_text_color(&time_date_text_style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
   
+
+  // Keyboard text style
+  lv_style_init(&kb_text_style);
+  lv_style_set_text_font(&kb_text_style, LV_STATE_DEFAULT, &lv_font_montserrat_12);
 
 } 
 
@@ -221,7 +219,7 @@ void InitHomeScreen()
 
   // Initialise settings message button object
   lv_obj_t *btn_settings = lv_btn_create(scr_home,NULL);
-  lv_obj_set_event_cb(btn_settings, BtnMessageWriteEventHandler);
+  lv_obj_set_event_cb(btn_settings, BtnHomeSettingsEventHandler);
   lv_obj_set_pos(btn_settings, 170, 130);
   lv_obj_set_size(btn_settings, 130, 90);
   lv_obj_add_style(btn_settings, LV_BTN_PART_MAIN, &nav_button_style);  /*Overwrite only a some colors to red*/
@@ -261,9 +259,126 @@ void InitHomeScreen()
 }
 
 
+void InitSettingsScreen()
+{
+  scr_settings = lv_obj_create(scr, NULL);
+  lv_obj_clean_style_list(scr_settings, LV_OBJ_PART_MAIN);
+  lv_obj_set_style_local_bg_opa(scr_settings, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT,LV_OPA_COVER);
+  lv_obj_set_style_local_bg_color(scr_settings, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT,LV_COLOR_NAVY);
+  lv_obj_set_pos(scr_settings, 0, 0);
+  lv_obj_set_size(scr_settings, LV_HOR_RES, LV_VER_RES);
+
+  // Wifi heading text
+  lv_obj_t *label_settings_WIFI = lv_label_create(scr_settings, NULL);
+  lv_label_set_text(label_settings_WIFI, "WIFI");
+  lv_obj_align(label_settings_WIFI, NULL, LV_ALIGN_IN_TOP_LEFT, 5, 2);
+  lv_obj_add_style(label_settings_WIFI, LV_LABEL_PART_MAIN,&heading_1_text_style);
 
 
+  label_settings_WIFI_status = lv_label_create(scr_settings, NULL);
+  lv_obj_align(label_settings_WIFI_status, NULL, LV_ALIGN_IN_TOP_LEFT, 50, 2);
+  lv_obj_add_style(label_settings_WIFI_status, LV_LABEL_PART_MAIN,&heading_2_text_style);
+  UpdateWifiStatusLabelText("Status");
 
+  // SSID heading text
+  lv_obj_t *label_settings_SSID = lv_label_create(scr_settings, NULL);
+  lv_label_set_text(label_settings_SSID, "SSID:");
+  lv_obj_align(label_settings_SSID, NULL, LV_ALIGN_IN_TOP_LEFT, 5, 20);
+  lv_obj_add_style(label_settings_SSID, LV_LABEL_PART_MAIN,&heading_2_text_style);
+  
+  /* Create the ssid text area */
+  ta_ssid = lv_textarea_create(scr_settings, NULL);
+  lv_textarea_set_text(ta_ssid, "");
+  lv_textarea_set_one_line(ta_ssid, true);
+  lv_obj_set_pos(ta_ssid, 5, 40);  
+  lv_obj_set_size(ta_ssid, 130, 30);
+  lv_obj_set_event_cb(ta_ssid, ta_write_kb_event);
+  lv_obj_add_style(ta_ssid, LV_DROPDOWN_PART_MAIN, &kb_text_style);
+  lv_textarea_set_cursor_hidden(ta_ssid, true);
+
+  // Password heading text
+  lv_obj_t *label_settings_password = lv_label_create(scr_settings, NULL);
+  lv_label_set_text(label_settings_password, "Password:");
+  lv_obj_align(label_settings_password, NULL, LV_ALIGN_IN_TOP_LEFT, 5, 75);
+  lv_obj_add_style(label_settings_password, LV_LABEL_PART_MAIN,&heading_2_text_style);
+
+  /* Create the password text area*/
+  ta_password = lv_textarea_create(scr_settings, NULL);
+  lv_textarea_set_text(ta_password, "");
+  lv_textarea_set_one_line(ta_password, true);
+  lv_obj_set_pos(ta_password, 5, 95);  
+  lv_obj_set_size(ta_password, 130, 25);
+  lv_obj_set_event_cb(ta_password, ta_write_kb_event);
+  lv_obj_add_style(ta_password, LV_DROPDOWN_PART_MAIN, &kb_text_style);
+  
+  // Initialise wifi scan button object
+  lv_obj_t *btn_wifi_scan = lv_btn_create(scr_settings,NULL);
+  lv_obj_set_event_cb(btn_wifi_scan, BtnSettingsScanWifiEventHandler);
+  lv_obj_set_pos(btn_wifi_scan, 50, 20);
+  lv_obj_set_size(btn_wifi_scan, 60, 15);
+  lv_obj_add_style(btn_wifi_scan, LV_BTN_PART_MAIN, &nav_button_style); 
+
+  // Text in scan wifi button object
+  lv_obj_t *label_wifi_scan_btn = lv_label_create(btn_wifi_scan, NULL);
+  lv_label_set_text(label_wifi_scan_btn, "Scan");
+  lv_obj_align(label_wifi_scan_btn, NULL, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_add_style(label_wifi_scan_btn, LV_LABEL_PART_MAIN,&heading_2_text_style);
+
+  /*Create a normal drop down list*/
+  wifi_scan_list = lv_dropdown_create(scr_settings, NULL);
+  lv_dropdown_set_options(wifi_scan_list,"");
+  lv_obj_set_pos(wifi_scan_list, 145, 20);  
+  lv_obj_set_event_cb(wifi_scan_list, WifiScanDropdownEventHandler);
+
+
+  // Initialise connect wifi button object
+  lv_obj_t *btn_wifi_connect = lv_btn_create(scr_settings,NULL);
+  lv_obj_set_event_cb(btn_wifi_connect, BtnSettingsConnectWifiEventHandler);
+  lv_obj_set_pos(btn_wifi_connect, 5, 130);
+  lv_obj_set_size(btn_wifi_connect, 60, 25);
+  lv_obj_add_style(btn_wifi_connect, LV_BTN_PART_MAIN, &nav_button_style); 
+
+  // Text in connect wifi button object
+  lv_obj_t *label_wifi_connect_btn = lv_label_create(btn_wifi_connect, NULL);
+  lv_label_set_text(label_wifi_connect_btn, "Connect");
+  lv_obj_align(label_wifi_connect_btn, NULL, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_add_style(label_wifi_connect_btn, LV_LABEL_PART_MAIN,&heading_2_text_style);
+
+  // Initialise connect wifi button object
+  lv_obj_t *btn_wifi_disconnect = lv_btn_create(scr_settings,NULL);
+  lv_obj_set_event_cb(btn_wifi_disconnect, BtnSettingsDisconnectWifiEventHandler);
+  lv_obj_set_pos(btn_wifi_disconnect, 70, 130);
+  lv_obj_set_size(btn_wifi_disconnect, 75, 25);
+  lv_obj_add_style(btn_wifi_disconnect, LV_BTN_PART_MAIN, &nav_button_style); 
+
+  // Text in connect wifi button object
+  lv_obj_t *label_wifi_disconnect_btn = lv_label_create(btn_wifi_disconnect, NULL);
+  lv_label_set_text(label_wifi_disconnect_btn, "Disconnect");
+  lv_obj_align(label_wifi_disconnect_btn, NULL, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_add_style(label_wifi_disconnect_btn, LV_LABEL_PART_MAIN,&heading_2_text_style);
+
+
+  kb = lv_keyboard_create(scr_settings, NULL);
+  lv_obj_set_size(kb, LV_HOR_RES, LV_VER_RES / 2);
+  lv_obj_set_event_cb(kb, keyboard_event_cb);
+  lv_obj_set_hidden(kb,true);
+
+
+  // Initialise view message button object
+  // lv_obj_t *btn_settings_wifi_connect = lv_btn_create(scr_settings,NULL);
+  // lv_obj_set_event_cb(btn_settings_wifi_connect, BtnMessageWriteEventHandler);
+  // lv_obj_set_pos(btn_settings_wifi_connect, 20, 50);
+  // lv_obj_set_size(btn_settings_wifi_connect, 130, 50);
+  // lv_obj_add_style(btn_settings_wifi_connect, LV_BTN_PART_MAIN, &nav_button_style); 
+
+  
+}
+
+void UpdateWifiStatusLabelText(String text)
+{
+  // Wifi Status text
+  lv_label_set_text(label_settings_WIFI_status, text.c_str());
+}
 
 void InitPanels()
 {
@@ -317,10 +432,38 @@ void InitWriteMessageObjects()
     kb = lv_keyboard_create(scr, NULL);
     lv_obj_set_size(kb,  LV_HOR_RES, LV_VER_RES / 2);
 
-    lv_keyboard_set_textarea(kb, ta_write_message);
-    lv_obj_set_event_cb(kb, keyboard_event_cb);
-    lv_obj_set_hidden(kb,true);
+
   
+}
+
+static void kb_event_cb(lv_obj_t * keyboard, lv_event_t e)
+{
+    lv_keyboard_def_event_cb(kb, e);
+    if(e == LV_EVENT_CANCEL) {
+        lv_keyboard_set_textarea(kb, NULL);
+        // lv_obj_del(kb);
+        // kb = NULL;
+    }
+
+}
+
+static void ta_write_kb_event(lv_obj_t * ta, lv_event_t event)
+{
+
+  
+      if(event == LV_EVENT_CLICKED) {
+        /* Focus on the clicked text area */
+        if(kb != NULL)
+        {
+          lv_textarea_set_cursor_hidden(ta, false);
+          lv_obj_set_hidden(kb,false);
+          lv_obj_set_top(kb, true);
+          lv_keyboard_set_textarea(kb, ta);
+        }
+        
+        //lv_obj_move_foreground(kb); 
+            
+    }
 }
 
 static void ta_write_message_event(lv_obj_t * ta, lv_event_t event)
@@ -346,6 +489,68 @@ static void ta_write_message_event(lv_obj_t * ta, lv_event_t event)
     }
 
 }  
+
+// Button Event Handlers
+// Home Screen
+
+static void BtnHomeSettingsEventHandler(lv_obj_t * btn_settings, lv_event_t event)
+{
+  if(event == LV_EVENT_CLICKED)   // If the settings button is clicked
+  {
+    lv_obj_set_hidden(scr_home,true);       // Hide the main screen 
+    lv_obj_set_hidden(scr_settings,false);  // Display the settings screen
+
+  }        
+}
+
+
+static void WifiScanDropdownEventHandler(lv_obj_t * obj, lv_event_t event)
+{
+    if(event == LV_EVENT_VALUE_CHANGED) {
+        char buf[32];
+        lv_dropdown_get_selected_str(obj, buf, sizeof(buf));
+        Serial.println(buf);
+        lv_textarea_set_text(ta_ssid, buf);
+    }
+}
+
+
+
+
+// Settings Screen
+// Scan Wifi
+static void BtnSettingsScanWifiEventHandler(lv_obj_t * btn_wifi_scan, lv_event_t event)
+{
+  if(event == LV_EVENT_CLICKED)   // If the settings button is clicked
+  {
+    // Scan Wifi Flag
+    scanWifiFlag = 1;
+
+  }        
+}
+
+//Connect to Wifi
+static void BtnSettingsConnectWifiEventHandler(lv_obj_t * btn_wifi_scan, lv_event_t event)
+{
+  if(event == LV_EVENT_CLICKED)   // If the settings button is clicked
+  {
+    // Scan Wifi Flag
+    connectWifiFlag = 1;
+    ssid = lv_textarea_get_text(ta_ssid);
+    password = lv_textarea_get_text(ta_password);
+  }        
+}
+
+//Disconnect Wifi
+static void BtnSettingsDisconnectWifiEventHandler(lv_obj_t * btn_wifi_scan, lv_event_t event)
+{
+  if(event == LV_EVENT_CLICKED)   // If the settings button is clicked
+  {
+    // Scan Wifi Flag
+    disconnectWifiFlag = 1;
+
+  }        
+}
 
 static void BtnMessageWriteEventHandler(lv_obj_t * btn_write_message, lv_event_t event)
 {
