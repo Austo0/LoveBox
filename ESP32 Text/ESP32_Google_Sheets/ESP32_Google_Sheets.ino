@@ -99,7 +99,7 @@ void setup()
   ssid = preferences.getString("ssid", ""); 
   password = preferences.getString("password", "");
   
-  ConnectToWifi();
+ 
  
   // Initialise TFT Display
   //InitTFTDisplay();
@@ -136,6 +136,8 @@ void setup()
   );
 
 
+
+
   // Initialise Timer0 interrupt
   //ITimer0.attachInterruptInterval(TIMER0_INTERVAL_MS * 1000, TimerHandler0);
 
@@ -157,8 +159,9 @@ void ConnectToWifi()
     Serial.print("Connecting to WiFi ..");
     
     int i = 0;
-    while((!WiFi.status() || WiFi.status() >= WL_DISCONNECTED) && i++ < 100) {
+    while((!WiFi.status() || WiFi.status() >= WL_DISCONNECTED) && i < 100) {
         delay(100);
+        i++;
     }
     
     if(WiFi.status() == WL_CONNECTED)
@@ -207,6 +210,8 @@ void loop()
 
 void handleWifiConnection(void *pvParameters)
 {
+  vTaskDelay(1000);
+  ConnectToWifi();
   while(1)
   {
     vTaskDelay(100);

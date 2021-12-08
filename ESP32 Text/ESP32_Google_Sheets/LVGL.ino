@@ -288,7 +288,7 @@ void InitSettingsScreen()
   
   /* Create the ssid text area */
   ta_ssid = lv_textarea_create(scr_settings, NULL);
-  lv_textarea_set_text(ta_ssid, "");
+  lv_textarea_set_text(ta_ssid, ssid.c_str());
   lv_textarea_set_one_line(ta_ssid, true);
   lv_obj_set_pos(ta_ssid, 5, 40);  
   lv_obj_set_size(ta_ssid, 130, 30);
