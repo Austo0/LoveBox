@@ -1,65 +1,56 @@
-/*	Project : Read Google Spread Sheet Data from ESP32	*/
-/*Refer following video for complete project : https://youtu.be/0LoeaewIAdY*/
+#include <Arduino.h>
+#include "main.h"
 
 #include <Preferences.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ESP32Ping.h>
-
+#include "time.h"
 #include <Wire.h>
 #include <SPI.h>
-
+#include "ESP32TimerInterrupt.h"
 // TFT Display Libraries 
 #include <lvgl.h>
-#include <TFT_eSPI.h>
+//#include <TFT_eSPI.h>
 
-// Definitions
-#define MODE_READ_CELL_RANGE 0
-#define MODE_READ_LAST_CELL 1
+#include "LVGLDisplay.h"
 
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 240
-
-//TFT LVGL Objects
-static lv_obj_t * scr;                // Main Screen object
-
+/************************************************************/
+// Functions
+/************************************************************/
+void GuiTask(void *pvParameters);
+void ScanGSheetTask(void *pvParameters);
+void HandleWifiConnection(void *pvParameters);
+void PrintLocalTimeDate();
+void WriteSpreadSheet();
+String readSpreadSheet(byte modeType);
+void ReadDataFromSheets();
 void UpdateWifiStatusLabelText(String text);
-
-//Screen objects
-static lv_obj_t * scr_home;
-static lv_obj_t * scr_settings;
-
-
-// Home Screen
-
-// Settings Screen
-static lv_obj_t *label_settings_WIFI_status;
-static lv_obj_t *ta_ssid;
-static lv_obj_t *ta_password;
-static lv_obj_t * wifi_scan_list;
-
-// Interrupt Timer Definitions
-#define TIMER_INTERRUPT_DEBUG         0
-#define _TIMERINTERRUPT_LOGLEVEL_     0
-#include "ESP32TimerInterrupt.h"
-#define TIMER0_INTERVAL_MS        20000
-void IRAM_ATTR TimerHandler0(void);
 
 /********************************************************************************/
 //Things to change
 // const char * ssid = "dlink-80EB";
 // const char * password = "abc123abc";
-String ssid = "dlink-80EB";
-String password = "abc123abc";
+
 
 String GOOGLE_SCRIPT_ID = "AKfycbwX8S-OX1MyQfS8jirMaF7FK2M1sBkYoVzDVRl3MpQibCIaqOGeq1TdCT8J6qhEY_oh";
 
 const int sendInterval = 5000; 
 
+
+String scanNetworkSSID = "";
+
 int scanWifiFlag = 0;
 int connectWifiFlag = 0;
 int disconnectWifiFlag = 0;
-String scanNetworkSSID = "";
+String ssid = "dlink-80EB";
+String password = "abc123abc";
+
+
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 46800;
+const int   daylightOffset_sec = 3600;
+
 /********************************************************************************/
 
 // Google Sheets Data Variables 
@@ -67,23 +58,16 @@ String dataDateString, dataTimeString, dataMessageString;
 int dataSentFlag, dataReceivedFlag = 0;
 int checkGoogleSheetsDataFlag = 1;
 
-// TFT LVGL Variables
-static lv_disp_buf_t disp_buf;
-static lv_color_t buf[LV_HOR_RES_MAX * 10];
 
 
-
-
+// Task Handlers
 TaskHandle_t ntScanTaskHandler;
 TaskHandle_t ntConnectTaskHandler;
 
-// Timer Interrupt Variables
-volatile uint32_t Timer0Count = 0;
-ESP32Timer ITimer0(0);
 
 // Initialise Instances
 WiFiClientSecure client;
-TFT_eSPI tft = TFT_eSPI();    /* TFT instance */
+
 Preferences preferences;    // Instance of preferences for saving data to Flash
 
 // Setup
@@ -96,55 +80,49 @@ void setup()
   //Create a namespace in preferences for wifi credentials
   preferences.begin("credentials", false);
 
+  // Read wifi credentials from memory
   ssid = preferences.getString("ssid", ""); 
   password = preferences.getString("password", "");
   
- 
- 
-  // Initialise TFT Display
-  //InitTFTDisplay();
+// Set up RTOS tasks
 
-    xTaskCreate(
-    guiTask,    // Function that should be called
-    "gui",   // Name of the task (for debugging)
-    4096*2,            // Stack size (bytes)
-    NULL,            // Parameter to pass
-    2,               // Task priority
-    NULL             // Task handle
+// Create a task to run the TFT touch screen display
+  xTaskCreate(
+  GuiTask,            // Function that should be called
+  "gui",              // Name of the task (for debugging)
+  4096*2,             // Stack size (bytes)
+  NULL,               // Parameter to pass
+  2,                  // Task priority
+  NULL                // Task handle
   );
 
   vTaskDelay(500);
 
-    xTaskCreate(
-    scanGSheetTask,    // Function that should be called
-    "ScanGSheetTask",   // Name of the task (for debugging)
-    4096*3,            // Stack size (bytes)
-    NULL,            // Parameter to pass
-    1,               // Task priority
-    &ntScanTaskHandler             // Task handle
+// Create a task to run the gsheets data management
+  xTaskCreate(
+  ScanGSheetTask,    // Function that should be called
+  "ScanGSheetTask",   // Name of the task (for debugging)
+  4096*3,            // Stack size (bytes)
+  NULL,            // Parameter to pass
+  1,               // Task priority
+  &ntScanTaskHandler             // Task handle
   );
 
   vTaskDelay(500);
 
-    xTaskCreate(
-    handleWifiConnection,    // Function that should be called
-    "HandleWifiConnection",   // Name of the task (for debugging)
-    4096*3,            // Stack size (bytes)
-    NULL,            // Parameter to pass
-    1,               // Task priority
-    &ntScanTaskHandler             // Task handle
+// Create a task to handle the wifi connection
+  xTaskCreate(
+  HandleWifiConnection,    // Function that should be called
+  "HandleWifiConnection",   // Name of the task (for debugging)
+  4096*3,            // Stack size (bytes)
+  NULL,            // Parameter to pass
+  1,               // Task priority
+  &ntScanTaskHandler             // Task handle
   );
-
-
-
-
-  // Initialise Timer0 interrupt
-  //ITimer0.attachInterruptInterval(TIMER0_INTERVAL_MS * 1000, TimerHandler0);
-
 
 }
 
-
+// Connect to wifi
 void ConnectToWifi()
 {
   if (ssid == "" || password == "")
@@ -170,6 +148,9 @@ void ConnectToWifi()
       UpdateWifiStatusLabelText("Connected");
       preferences.putString("ssid", ssid); 
       preferences.putString("password", password);
+
+      configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+      PrintLocalTimeDate();
     }    
     else
     {
@@ -180,35 +161,22 @@ void ConnectToWifi()
   }
 }
 
+// Disconnect from wifi
 void DisconnectWifi()
 {
   WiFi.disconnect();
 }
 
-// Interrupt every TIMER0_INTERVAL_MS to check for updated data from google sheets
-// void TimerHandler0()
-// {
-//   checkGoogleSheetsDataFlag = 1;
-// }
 
 // Main loop
 void loop() 
 {
-  // if(checkGoogleSheetsDataFlag == 1)
-  // {
-  //   ReadDataFromSheets();
-  //   checkGoogleSheetsDataFlag = 0;
 
-  //   lv_label_set_text(label, dataMessageString.c_str());
-  //   lv_obj_align(label, NULL, LV_ALIGN_CENTER, 0, 0);
-    
-  // }
-  
-  //   lv_task_handler(); /* let the GUI do its work */
-  //   delay(5);
 }
 
-void handleWifiConnection(void *pvParameters)
+
+
+void HandleWifiConnection(void *pvParameters)
 {
   vTaskDelay(1000);
   ConnectToWifi();
@@ -236,10 +204,7 @@ void handleWifiConnection(void *pvParameters)
           }          
           
         }
-        wifi_scan_list = lv_dropdown_create(scr_settings, NULL);
-        lv_obj_set_pos(wifi_scan_list, 145, 20); 
-        lv_dropdown_set_options(wifi_scan_list,scanNetworkSSID.c_str());
-        lv_obj_set_event_cb(wifi_scan_list, WifiScanDropdownEventHandler);
+        UpdateWifiScanDropDown(scanNetworkSSID);
         Serial.print(scanNetworkSSID);
       }
     }
@@ -267,7 +232,7 @@ void handleWifiConnection(void *pvParameters)
 // Google Sheets Data Functions
 /********************************************************************************/
 
-void scanGSheetTask(void *pvParameters) 
+void ScanGSheetTask(void *pvParameters) 
 { 
 
   while(1)
@@ -276,7 +241,8 @@ void scanGSheetTask(void *pvParameters)
     vTaskDelay(10000);
     if(WiFi.status() == WL_CONNECTED)
     {
-       ReadDataFromSheets();  
+       //ReadDataFromSheets();  
+       PrintLocalTimeDate();
     }
    
     // lv_label_set_text(label, dataMessageString.c_str());
@@ -354,7 +320,7 @@ String readSpreadSheet(byte modeType)
   return payload;
 }
 
-void writeSpreadSheet()
+void WriteSpreadSheet()
 {
      HTTPClient http;
    String url="https://script.google.com/macros/s/"+GOOGLE_SCRIPT_ID+"/exec";
@@ -390,10 +356,53 @@ void writeSpreadSheet()
 
 
 
+void PrintLocalTimeDate()
+{
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo))
+  {
+    Serial.println("Failed to obtain time");
+    return;
+  }
+    // Serial.println(&timeinfo, "%I");
+  // Serial.print("Minute: ");
+  // Serial.println(&timeinfo, "%M");
+  // Serial.print("Second: ");
+  char timeHourMin[6];
+  char meridiem[3];
+  char timeHourMinMeridiem[10];
+  strftime(timeHourMin,6, "%I:%M", &timeinfo);
+strftime(meridiem,3, "%p", &timeinfo);
+ sprintf(timeHourMinMeridiem, "%s %s", timeHourMin, meridiem);
+ UpdateTimeDateLabelText(timeHourMinMeridiem);
+  Serial.println(timeHourMinMeridiem);
 
+  // Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  // Serial.print("Day of week: ");
+  // Serial.println(&timeinfo, "%A");
+  // Serial.print("Month: ");
+  // Serial.println(&timeinfo, "%B");
+  // Serial.print("Day of Month: ");
+  // Serial.println(&timeinfo, "%d");
+  // Serial.print("Year: ");
+  // Serial.println(&timeinfo, "%Y");
+  // Serial.print("Hour: ");
+  // Serial.println(&timeinfo, "%H");
+  // Serial.print("Hour (12 hour format): ");
+  // Serial.println(&timeinfo, "%I");
+  // Serial.print("Minute: ");
+  // Serial.println(&timeinfo, "%M");
+  // Serial.print("Second: ");
+  // Serial.println(&timeinfo, "%S");
 
+  // Serial.println("Time variables");
 
-
+  // Serial.println(timeHour);
+  // char timeWeekDay[10];
+  // strftime(timeWeekDay,10, "%A", &timeinfo);
+  // Serial.println(timeWeekDay);
+  // Serial.println();
+}
 
 
 

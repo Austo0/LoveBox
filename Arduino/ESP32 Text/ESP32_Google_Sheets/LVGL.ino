@@ -199,28 +199,28 @@ void InitHomeScreen()
   // Initialise view message button object
   lv_obj_t *btn_view_msg = lv_btn_create(scr_home,NULL);
   lv_obj_set_event_cb(btn_view_msg, BtnMessageWriteEventHandler);
-  lv_obj_set_pos(btn_view_msg, 20, 20);
+  lv_obj_set_pos(btn_view_msg, 20, 30);
   lv_obj_set_size(btn_view_msg, 130, 90);
   lv_obj_add_style(btn_view_msg, LV_BTN_PART_MAIN, &nav_button_style);  /*Overwrite only a some colors to red*/
 
   // Initialise write message button object
   lv_obj_t *btn_write_msg = lv_btn_create(scr_home,NULL);
   lv_obj_set_event_cb(btn_write_msg, BtnMessageWriteEventHandler);
-  lv_obj_set_pos(btn_write_msg, 170, 20);
+  lv_obj_set_pos(btn_write_msg, 170, 30);
   lv_obj_set_size(btn_write_msg, 130, 90);
   lv_obj_add_style(btn_write_msg, LV_BTN_PART_MAIN, &nav_button_style);  /*Overwrite only a some colors to red*/
   
   // Initialise reserve message button object
   lv_obj_t *btn_res = lv_btn_create(scr_home,NULL);
   lv_obj_set_event_cb(btn_res, BtnMessageWriteEventHandler);
-  lv_obj_set_pos(btn_res, 20, 130);
+  lv_obj_set_pos(btn_res, 20, 140);
   lv_obj_set_size(btn_res, 130, 90);
   lv_obj_add_style(btn_res, LV_BTN_PART_MAIN, &nav_button_style);  /*Overwrite only a some colors to red*/
 
   // Initialise settings message button object
   lv_obj_t *btn_settings = lv_btn_create(scr_home,NULL);
   lv_obj_set_event_cb(btn_settings, BtnHomeSettingsEventHandler);
-  lv_obj_set_pos(btn_settings, 170, 130);
+  lv_obj_set_pos(btn_settings, 170, 140);
   lv_obj_set_size(btn_settings, 130, 90);
   lv_obj_add_style(btn_settings, LV_BTN_PART_MAIN, &nav_button_style);  /*Overwrite only a some colors to red*/
 
